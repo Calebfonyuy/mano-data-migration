@@ -25,12 +25,13 @@ def write_site_tables(con: MySQLConnection, tables: List, site_id: int):
     query = 'insert into house_tables(site_id, name, created_at, updated_at) values({}, "{}", NOW(), NOW());'
     cursor = con.cursor()
     cors = {}
+    con.start_transaction()
     for table in tables:
         entry = list(table)
         cursor.execute(query.format(site_id, entry[1]))
         cors[entry[0]] = cursor.lastrowid
-        con.commit()
     
+    con.commit()
     cursor.close()
     return cors
 
@@ -39,6 +40,7 @@ def write_user_types(con: MySQLConnection):
     query += 'values("{}", {}, {}, {}, {}, {}, {}, NOW(), NOW());'
     cursor = con.cursor()
     id_maps = {}
+    con.start_transaction()
     #Admin
     cursor.execute(query.format('ADMINISTRATEUR', 1, 1, 1,1 ,1 ,1))
     id_maps[0] = cursor.lastrowid
@@ -59,6 +61,7 @@ def write_site_users(con: MySQLConnection, users: List, site_id: int, user_type_
 
     cursor = con.cursor()
     user_id_map = {}
+    con.start_transaction()
     for user in users:
         entry = list(user)
         user_type = int(user_type_map[entry[8]])
@@ -72,7 +75,9 @@ def write_site_users(con: MySQLConnection, users: List, site_id: int, user_type_
             entry[2]
         ))
         user_id_map[entry[0]] = cursor.lastrowid
-        con.commit()
+    
+    con.commit()
+    cursor.close()
 
     return user_id_map
 
@@ -82,9 +87,13 @@ def write_menu_types(con: MySQLConnection, menu_types: List, site_id: int):
     
     menu_type_map = {}
     cursor = con.cursor()
+    con.start_transaction()
     for type in menu_types:
         cursor.execute(query.format(site_id, type[1]))
         menu_type_map[type[0]] = cursor.lastrowid
+    
+    con.commit()
+    cursor.close()
     
     return menu_type_map
 
@@ -93,10 +102,14 @@ def write_menu_groups(con: MySQLConnection, menu_groups: List, site_id: int, men
 
     menu_group_map = {}
     cursor = con.cursor()
+    con.start_transaction()
     for group in menu_groups:
         type_id = int(menu_type_map[group[2]])
         cursor.execute(query.format(site_id, type_id, group[1]))
         menu_group_map[group[0]] = cursor.lastrowid
+        
+    con.commit()
+    cursor.close()
 
     return menu_group_map
 
@@ -105,6 +118,7 @@ def create_item_types(con: MySQLConnection):
 
     cursor = con.cursor()
     item_type_map = {}
+    con.start_transaction()
     #FOOD
     cursor.execute(query.format('NOURITURE'))
     item_type_map[0] = cursor.lastrowid
@@ -114,11 +128,104 @@ def create_item_types(con: MySQLConnection):
     #FORMULAS
     cursor.execute(query.format('FORMULES'))
     item_type_map[2] = cursor.lastrowid
+    
+    con.commit()
+    cursor.close()
 
     return item_type_map
 
-def write_items(con: MySQLConnection, items: List, site_id: int, menu_type_map: List, menu_group_map: List, item_type_map: List):
-    pass
+def write_items(con: MySQLConnection, items: List, menu_type_map: List, menu_group_map: List, item_type_map: List):
+    query = 'insert into items(menu_type_id, menu_group_id, item_type_id, name, description, price, stock) '
+    query += 'values({}, {}, {}, "{}", "{}", {}, 0);'
+
+    item_map = {}
+    cursor = con.cursor()
+    con.start_transaction()
+    for item in items:
+        item_type = int(item_type_map[item[2]])
+        menu_type = int(menu_type_map[item[6]])
+        menu_group = None
+        if item[5] is not None:
+            int(menu_group_map[item[5]])
+        cursor.execute(query.format(
+            menu_type, menu_group, item_type,
+            item[3], item[1], item[4]
+        ))
+        item_map[item[0]] = cursor.lastrowid
+        
+    con.commit()
+    cursor.close()
+    
+    return item_map
+
+def write_item_stock(con: MySQLConnection, stocks: List, item_map: List):
+    query = 'insert into stocks(item_id, last_delivery, quantity) values({}, "{} 12:00:00", {});'
+    update = 'update items set stock=1 where item_id={};'
+
+    cursor = con.cursor()
+    con.start_transaction()
+    for stock in stocks:
+        if stock[1] is None: # Item stock is not managed
+            continue
+        
+        item = int(item_map[stock[2]])
+        cursor.execute(update.format(item))
+        cursor.execute(query.format(item, stock[0], stock[2]))
+
+def write_payment_mode(con: MySQLConnection):
+    query = 'insert into payment_modes(name, created_at, deleted_at) values("{}", NOW(), NOW())'
+
+    cursor = con.cursor()
+    con.start_transaction()
+    
+    cursor.execute(query.format('ESPECES'))
+    id = cursor.lastrowid
+    
+    con.commit()
+    cursor.close()
+
+    return id
+
+def write_orders(con: MySQLConnection, orders: List, site_id: int, item_map: List, user_map: List, table_map: List, payment_mode: int, order_details: callable):
+    query = 'insert into orders(site_id, user_id, house_table_id, name, order_date, serving_mode, discount, paid, served, served_by) '
+    query += 'values({}, {}, {}, "{}", "{}", {}, {}, {}, {}, {});'
+
+    iquery = 'insert into order_items(order_id, item_id, price, quantity) values({}, {}, {}, {});'
+    
+    pquery = 'insert into payments(order_id, payment_mode_id, user_id, amount, payment_date) '
+    pquery += 'values({}, {}, {}, {},"{}");'
+
+    cursor = con.cursor()
+    con.start_transaction()
+    for order in orders:
+        order_items = order_details(int(order[0]))
+        table = int(table_map[order[10]])
+        serving_mode = int(order[6])-1
+        user_id = int(user_map[order[8]])
+        server_id = int(user_map[order[9]])
+        paid = int(order[5])
+        cursor.execute(query.format(
+            site_id, user_id, table, 
+            order[2], order[3], serving_mode,
+            order[1], paid, int(order[7]), server_id
+        ))
+        order_id = cursor.lastrowid
+        price = 0
+        for item in order_items:
+            item_id = int(item_map[item[3]])
+            price += int(item[0]) * item[1]
+            cursor.execute(iquery.format(
+                order_id, item_id, int(item[0]), item[1]
+            ))
+        
+        if paid:
+            paid_val = price - price*0.01*order[1]
+            cursor.execute(pquery.format(
+                order_id, payment_mode, user_id, paid_val, order[4]
+            ))
+
+    con.commit()
+    cursor.close()
 
 
 if __name__ == "__main__":
