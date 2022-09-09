@@ -1,5 +1,4 @@
 from mysql.connector import MySQLConnection
-from db_connection import get_source_connection as get_con
 
 def read_users(con: MySQLConnection):
     cursor = con.cursor()
@@ -87,15 +86,17 @@ def read_command_elements(con: MySQLConnection, id):
 
 
 if __name__ == "__main__":
+    from db_connection import get_source_connection as get_con
     con = get_con()
 
-    # data = read_tables(con)
-    # print(data)
-    # data = read_menu_types(con)
-    # print(data)
-    # data = read_menu_groups(con)
-    # print(data)
-    for data in read_user_connections(con):
-        print(data)
+    data = read_tables(con)
+    item = list(data[0])
+    print(item)
+    id = 2
+    entry = [
+        item[0], id, item[1]
+    ]
+    item = tuple(entry)
+    print(item)
 
     con.close()
