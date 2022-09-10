@@ -41,46 +41,36 @@ def read_menu_groups(con: MySQLConnection):
 def read_items(con: MySQLConnection):
     cursor = con.cursor()
     cursor.execute("Select * from element")
-    data = cursor.fetchmany(10)
-    while len(data)>0:
-        print(data)
-        yield data
-        data = cursor.fetchmany(10)
+    data = cursor.fetchall()
     cursor.close()
+    return data
 
 def read_stock(con: MySQLConnection):
     cursor = con.cursor()
     cursor.execute("Select * from stock")
-    data = cursor.fetchmany(10)
-    while len(data)>0:
-        print(data)
-        yield data
-        data = cursor.fetchmany(10)
+    data = cursor.fetchall()
     cursor.close()
+    return data
 
 def read_stockdelivery(con: MySQLConnection):
     cursor = con.cursor()
     cursor.execute("Select * from stockdelivery")
-    data = cursor.fetchmany(10)
-    while len(data)>0:
-        print(data)
-        yield data
-        data = cursor.fetchmany(10)
+    data = cursor.fetchall()
     cursor.close()
+    return data()
 
 def read_command(con: MySQLConnection):
     cursor = con.cursor()
-    cursor.execute("Select * from element")
-    data = cursor.fetchmany(10)
+    cursor.execute("Select * from command")
+    data = cursor.fetchmany(100)
     while len(data)>0:
-        print(data)
         yield data
-        data = cursor.fetchmany(10)
+        data = cursor.fetchmany(100)
     cursor.close()
 
 def read_command_elements(con: MySQLConnection, id):
     cursor = con.cursor()
-    cursor.execute("Select * from commandelement where COMMAND_ID="+id)
+    cursor.execute("Select * from commandelement where COMMAND_ID={}".format(id))
     data = cursor.fetchall()
     return data
 
