@@ -177,7 +177,7 @@ def write_item_stock(con: MySQLConnection, stocks: List, item_map: dict):
     con.commit()
 
 def write_payment_mode(con: MySQLConnection):
-    query = 'insert into payment_modes(name, created_at, deleted_at) values("{}", NOW(), NOW())'
+    query = 'insert into payment_modes(name, created_at, updated_at) values("{}", NOW(), NOW())'
 
     cursor = con.cursor()
     con.start_transaction()
@@ -208,9 +208,10 @@ def write_orders(con: MySQLConnection, orders: List, site_id: int, item_map: dic
         user_id = int(user_map[order[8]])
         server_id = int(user_map[order[9]])
         paid = int(order[5])
+        order_name = "" if order[2] is None else order[2]
         cursor.execute(query.format(
             site_id, user_id, table, 
-            order[2], order[3], serving_mode,
+            order_name, order[3], serving_mode,
             order[1], paid, int(order[7]), server_id
         ))
         order_id = cursor.lastrowid
