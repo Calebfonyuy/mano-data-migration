@@ -204,7 +204,7 @@ def write_orders(con: MySQLConnection, orders: List, site_id: int, item_map: dic
     for order in orders:
         order_items = order_details(source, int(order[0]))
         table = int(table_map[order[10]])
-        serving_mode = int(order[6])-1
+        serving_mode = int(order[6])+1
         user_id = int(user_map[order[8]])
         server_id = int(user_map[order[9]])
         paid = int(order[5])
